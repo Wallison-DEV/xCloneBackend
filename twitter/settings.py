@@ -8,7 +8,7 @@ SECRET_KEY = "django-insecure-mrj*me#@=7)0aj@lh)1*0$9#0s5dud+2iebge=zi-(rhiz17!b
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['wallison.pythonanywhere.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['wallison.pythonanywhere.com', 'localhost', '127.0.0.1', '.vercel.app']
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -49,7 +49,8 @@ AUTH_USER_MODEL = 'accounts.AccountModel'
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
-    'wallison.pythonanywhere.com',
+    'https://wallison.pythonanywhere.com',
+    'https://x-clone-backend-git-main-wallisondevs.vercel.app/',
 ]
 
 CORS_ALLOW_METHODS = [
