@@ -50,7 +50,7 @@ AUTH_USER_MODEL = 'accounts.AccountModel'
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'https://wallison.pythonanywhere.com',
-    'https://x-clone-frontend-l2fk5d937-wallisondevs.vercel.app',
+    'https://x-clone-frontend-neon.vercel.app',
 ]
 
 CORS_ALLOW_METHODS = [
@@ -124,7 +124,8 @@ USE_I18N = True
 
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_URL = "/static/"
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
