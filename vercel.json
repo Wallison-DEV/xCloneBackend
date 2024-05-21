@@ -12,5 +12,11 @@
             "src": "/(.*)",
             "dest": "twitter/wsgi.py"
         }
-    ]
+    ],
+    "build": {
+        "env": {
+            "DJANGO_SETTINGS_MODULE": "twitter.settings"
+        },
+        "command": "sh build_files.sh"
+    }
 }
