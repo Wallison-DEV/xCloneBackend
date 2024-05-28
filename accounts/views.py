@@ -1,16 +1,21 @@
+from rest_framework.views import APIView
 from rest_framework import viewsets, status, exceptions
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import UntypedToken
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
-from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from django.utils import timezone
 from rest_framework.parsers import JSONParser, MultiPartParser
 from django.db.models import Q
 
+from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from .models import AccountModel
+from allauth.socialaccount.models import SocialToken, SocialApp
 
 from .serializers import UserSerializer, CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 
@@ -19,7 +24,7 @@ class AccountModelViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     lookup_field = 'pk'
     parser_classes = (JSONParser, MultiPartParser)
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [AllowAny]
 
     def list(self, request, *args, **kwargs):
         username_query = request.query_params.get('username', '')
@@ -32,7 +37,7 @@ class AccountModelViewSet(viewsets.ModelViewSet):
 
         filtered_user = filtered_user.order_by('username').all()
         serializer = UserSerializer(filtered_user, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def my_user(self, request, pk=None):
@@ -56,7 +61,7 @@ class AccountModelViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None):
         user = self.get_object()
         serializer = self.get_serializer(user)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     def create(self, request, *args, **kwargs):
         username = request.data.get('username')
@@ -87,7 +92,7 @@ class AccountModelViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(user, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response({'profile':serializer.data, 'status':status.HTTP_200_OK})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
@@ -124,3 +129,44 @@ class TokenValidateView(APIView):
 
 class CustomTokenRefreshView(TokenRefreshView):
     serializer_class = CustomTokenRefreshSerializer
+
+class GoogleAuthView(APIView):
+    authentication_classes = [AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+
+        if not token:
+            return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            social_token = SocialToken.objects.get(token=token)
+            social_app = SocialApp.objects.get(provider='google')
+            if social_token.app_id != social_app.pk:
+                raise SocialToken.DoesNotExist
+        except SocialToken.DoesNotExist:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+        except SocialApp.DoesNotExist:
+            return Response({'error': 'Google provider not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        google_user_info = social_token.account.extra_data
+        email = google_user_info.get('email')
+        if not email:
+            return Response({'error': 'Email not found in Google account'}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            username = google_user_info.get('username')
+            arroba = username if username else email.split('@')[0]
+            user = User.objects.create_user(email=email, username=username, arroba=arroba)
+
+        refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+        exp = access_token['exp']
+        return Response({
+            'access': str(access_token),
+            'refresh': str(refresh),
+            'exp': exp
+        }, status=status.HTTP_200_OK)
